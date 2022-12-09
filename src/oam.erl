@@ -30,7 +30,8 @@
 
 	 new_db_info/1,
 	 new_connect_nodes/1,
-	 new_pods/1,
+	 new_controllers/1,
+	 new_workers/1,
 	 
 
 	 ping/0
@@ -77,8 +78,10 @@ new_db_info(ClusterSpec)->
     gen_server:call(?MODULE, {new_db_info,ClusterSpec},infinity).
 new_connect_nodes(ClusterSpec)->
     gen_server:call(?MODULE, {new_connect_nodes,ClusterSpec},infinity).
-new_pods(ClusterSpec)->
-    gen_server:call(?MODULE, {new_pods,ClusterSpec},infinity).
+new_controllers(ClusterSpec)->
+    gen_server:call(?MODULE, {new_controllers,ClusterSpec},infinity).
+new_workers(ClusterSpec)->
+    gen_server:call(?MODULE, {new_workers,ClusterSpec},infinity).
 	 
 new_cluster(ClusterSpec)->
     gen_server:call(?MODULE, {new_cluster,ClusterSpec},infinity).
@@ -176,22 +179,33 @@ handle_call({new_connect_nodes,ClusterSpec},_From, State) ->
 	  end,
  {reply, Reply, NewState};
 
-handle_call({new_pods,ClusterSpec},_From, State) ->
+handle_call({new_controllers,ClusterSpec},_From, State) ->
     Reply= case lists:keyfind(ClusterSpec,1,State#state.cluster_specs) of
 	       false->
-		   NewState=State,
 		   {error,[eexists,ClusterSpec,?MODULE,?LINE]};
 	       {ClusterSpec,InstanceId}->
 		   CurrentCookie=erlang:get_cookie(),
 		   {ok,Cookie}=db_cluster_spec:read(cookie,ClusterSpec),
 		   erlang:set_cookie(node(),list_to_atom(Cookie)),
-		   ops_connect_operator_server:create_connect_nodes(ClusterSpec,InstanceId),
+		   ops_pod_operator_server:create_controller_pods(ClusterSpec,InstanceId),
 		   erlang:set_cookie(node(),CurrentCookie),
-		   NewState=State#state{cluster_specs=[{ClusterSpec,InstanceId}|State#state.cluster_specs]},
 		   ok
-	  end,
- {reply, Reply, NewState};
+	   end,
+    {reply, Reply, State};
 
+handle_call({new_workers,ClusterSpec},_From, State) ->
+    Reply= case lists:keyfind(ClusterSpec,1,State#state.cluster_specs) of
+	       false->
+		   {error,[eexists,ClusterSpec,?MODULE,?LINE]};
+	       {ClusterSpec,InstanceId}->
+		   CurrentCookie=erlang:get_cookie(),
+		   {ok,Cookie}=db_cluster_spec:read(cookie,ClusterSpec),
+		   erlang:set_cookie(node(),list_to_atom(Cookie)),
+		   ops_pod_operator_server:create_worker_pods(ClusterSpec,InstanceId),
+		   erlang:set_cookie(node(),CurrentCookie),
+		   ok
+	   end,
+    {reply, Reply, State};
 
 handle_call({ping_connect_nodes,ClusterSpec},_From, State) ->
     Reply= case lists:keyfind(ClusterSpec,1,State#state.cluster_specs) of
@@ -240,6 +254,8 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_info({ssh_cm,_,_}, State) ->
+    {noreply, State};
 
 handle_info(Info, State) ->
     io:format("unmatched match~p~n",[{Info,?MODULE,?LINE}]), 

@@ -27,6 +27,7 @@ start()->
 
     ok=setup(),
     ok=test_1(),
+    ok=test_2(),
     
   
   
@@ -35,6 +36,24 @@ start()->
     ok.
 
 
+%% --------------------------------------------------------------------
+%% Function: available_hosts()
+%% Description: Based on hosts.config file checks which hosts are avaible
+%% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
+%% --------------------------------------------------------------------
+test_2()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+
+    ClusterSpec1="c200_c201",
+    ClusterSpec2="single_c200",
+    
+    ok=oam:new_controllers(ClusterSpec1),
+    ok=oam:new_workers(ClusterSpec1),
+    ok=oam:new_controllers(ClusterSpec2),
+    ok=oam:new_workers(ClusterSpec2),
+    
+  
+    ok.
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible
